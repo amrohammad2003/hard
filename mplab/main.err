@@ -1,0 +1,12 @@
+Warning[205] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\MAIN.ASM 1 : Found directive in column 1. (LIST)
+Message[302] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\MAIN.ASM 68 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\MAIN.ASM 72 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\MAIN.ASM 74 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\MAIN.ASM 78 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Warning[203] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\MAIN.ASM 274 : Found opcode in column 1. (GOTO)
+Warning[205] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\MAIN.ASM 744 : Found directive in column 1. (INCLUDE)
+Message[305] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\LCDIS_PORTA.INC 27 : Using default destination of 1 (file).
+Message[305] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\LCDIS_PORTA.INC 37 : Using default destination of 1 (file).
+Message[305] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\LCDIS_PORTA.INC 67 : Using default destination of 1 (file).
+Message[302] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\LCDIS_PORTA.INC 101 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\USERS\NEW LAPTOP\DESKTOP\MPLAB\LCDIS_PORTA.INC 108 : Register in operand not in bank 0.  Ensure that bank bits are correct.

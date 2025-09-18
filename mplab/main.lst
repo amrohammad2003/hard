@@ -1,0 +1,1538 @@
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+Warning[205]: Found directive in column 1. (LIST)
+                      00001 LIST    P=16F877A          ; Specify the microcontroller model (PIC16F877A)
+                      00002     INCLUDE "P16F877A.INC"     ; Include the header file containing register definitions
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC16F877A processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2011 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      00564         LIST
+                      00003 
+                      00004     ; Configure the microcontroller settings:
+                      00005     ; _CP_OFF   -> Code protection disabled
+                      00006     ; _WDT_OFF  -> Watchdog Timer disabled
+                      00007     ; _PWRTE_ON -> Power-up Timer enabled
+                      00008     ; _XT_OSC   -> External crystal oscillator mode
+2007   3FF1           00009     __CONFIG _CP_OFF & _WDT_OFF & _PWRTE_ON & _XT_OSC  
+                      00010 
+                      00011     ORG     0x0000             ; Set the origin at address 0 (Reset Vector)
+0000   2???           00012     GOTO    MAIN               ; Jump to the main program execution
+                      00013 
+                      00014     ORG     0x0004             ; Interrupt vector location (not used in this program)
+                      00015 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;
+                      00016 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;;
+                      00017 ; Variable definitions
+  00000040            00018 TimeoutCounter   EQU 0x40  ; Define a memory location for the timeout counter
+  0000002A            00019 Index_REG    EQU 0x2A    ; General-purpose register for player input pointer
+  00000020            00020 STATUS_REG EQU 0x20            ; Define a register for the Status variable
+  00000021            00021 TEMP_REG   EQU 0x21            ; Temporary register for button states
+  00000022            00022 INDEX_REG  EQU 0x22            ; Index register for tracking button-LED pairs
+  00000023            00023 COUNT1     EQU 0x23            ; Outer loop counter for delay
+  00000024            00024 COUNT2     EQU 0x24            ; Middle loop counter for delay
+  00000025            00025 COUNT3     EQU 0x25            ; Inner loop counter for delay
+  00000026            00026 Counter    EQU 0x26            ; Counter for looping
+  00000027            00027 LEDSequence EQU 0x27           ; LED sequence storage (4 bytes)
+  00000032            00028 InputIndex  EQU 0x32           ; Index for player input
+  0000002D            00029 PlayerInput EQU 0x2D           ; Player input storage (4 bytes for Level 1)
+  0000000F            00030 BUTTON_MASK EQU 0x0F           ; Mask for buttons (RC0-RC3)
+  00000038            00031 Random     EQU 0x38            ; Random number storage
+  00000036            00032 Delay1     EQU 0x36            ; Delay variable 1
+  00000037            00033 Delay2     EQU 0x37            ; Delay variable 2
+  00000039            00034 AttemptsCounter   EQU 0x39            ; Counter for looping
+  0000003A            00035 ClicksCounter   EQU 0x3A            ; Counter for number of clicks 
+  0000003B            00036 Counter3   EQU 0X3B                 ; Counter to addresses      
+  0000003C            00037 TEMP_REG2   EQU 0x3C            ; Temporary register for button states
+  0000003D            00038 BlinkCounter  EQU 0x3D
+  0000003E            00039 IsSuccess    EQU 0X3E           ; Boolean to determine wethere the user input is correct or not 
+  0000003F            00040 LevelsCounter EQU 0X3F          ; Counter for the level number 
+  00000031            00041 LEVEL    EQU 0x31    ; General-purpose register for player input pointer
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00042 
+                      00043 
+  00000070            00044 SEED    EQU  0x70  ; Seed storage for randomness
+  00000071            00045 TEMP    EQU  0x71  ; Temporary register
+  00000072            00046 INDEX   EQU  0x72  ; Index for lookup table
+  00000073            00047 LoopCounter   EQU  0x73  ; Index for lookup table
+  00000074            00048 FSR_Backup   EQU 0x74   ; Temporary register to track LEDSequence pointer
+  00000075            00049 TempPointer   EQU 0x75   ; Temporary register to track LEDSequence pointer
+                      00050 
+                      00051 ; Delay subroutine constants
+  00000007            00052 DELAY_1S_COUNT1 EQU 0x07       ; Outer loop counter for 1-second delay
+  000000FF            00053 DELAY_1S_COUNT2 EQU 0xFF       ; Middle loop counter for 1-second delay
+  000000FF            00054 DELAY_1S_COUNT3 EQU 0xFF       ; Inner loop counter for 1-second delay
+                      00055 
+                      00056 
+                      00057 
+                      00058 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;
+                      00059 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;;
+                      00060 ; Main program
+                      00061 ; ... [Previous code up to MAIN remains the same] ...
+                      00062 
+0004                  00063 MAIN:
+0004   0186           00064     CLRF    PORTB              ; Turn off all LEDs on PORTB (RB0-RB3)
+0005   01C0           00065     CLRF    TimeoutCounter     ; Initialize timeout counter to 0
+0006   1683 1303      00066     BANKSEL OPTION_REG
+0008   3007           00067     MOVLW   b'00000111'        ; Prescaler 1:256 (slows Timer0 for seed variation)
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0009   0081           00068     MOVWF   OPTION_REG
+000A   1283 1303      00069     BANKSEL PORTA
+                      00070     ; ======== Initialize Ports ========
+000C   1683           00071     BSF     STATUS, RP0        ; Select Bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000D   0186           00072     CLRF    TRISB              ; PORTB as output
+000E   300F           00073     MOVLW   0x0F               ; PORTC0-3 as input
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000F   0087           00074     MOVWF   TRISC
+0010   1283           00075     BCF     STATUS, RP0        ; Back to Bank 0
+                      00076     ; ======== Configure PORTA for LCD ========
+0011   1683 1303      00077     BANKSEL TRISA
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0013   0185           00078     CLRF    TRISA              ; PORTA as output
+0014   1283 1303      00079     BANKSEL PORTA
+                      00080     ; ======== Initialize Variables ========
+0016   01A0           00081     CLRF    STATUS_REG
+0017   0186           00082     CLRF    PORTB
+0018   2???           00083     CALL    xms
+0019   2???           00084     CALL    xms
+001A   2???           00085     CALL    inid               ; Initialize LCD
+                      00086     ; Display initial messages and wait for button press
+001B   2???           00087     CALL    BlinkMessage       ; "Press any button to start"
+001C   2???           00088     CALL    LevelMessage       ; Display initial level (Level 1)
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00089 
+001D                  00090 WaitForStartButton:
+                      00091     ; Wait for any button press (RC0-RC3)
+001D   0807           00092     MOVF    PORTC, W
+001E   390F           00093     ANDLW   BUTTON_MASK
+001F   3A0F           00094     XORLW   BUTTON_MASK
+0020   1903           00095     BTFSC   STATUS, Z          ; Skip if any button pressed
+0021   2???           00096     GOTO    WaitForStartButton
+                      00097 
+                      00098     ; Generate and display the LED sequence
+0022   2???           00099     CALL    GenerateLEDSequence
+0023   2???           00100     CALL    Delay1Second
+                      00101 
+0024   2???           00102     CALL    DisplayLEDSequence
+0025   2???           00103     CALL    Delay1Second
+                      00104     ; Initialize counters and variables
+0026   3003           00105     MOVLW   0x03
+0027   00B9           00106     MOVWF   AttemptsCounter
+0028   3003           00107     MOVLW   0x03
+0029   00BA           00108     MOVWF   ClicksCounter
+002A   01BB           00109     CLRF    Counter3
+002B   01BE           00110     CLRF    IsSuccess
+002C   01BF           00111     CLRF    LevelsCounter      ; Initialize level counter to 0 (Level 1)
+                      00112 
+                      00113  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;
+                      00114  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Main programe ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;
+                      00115 
+002D                  00116 MAIN_LOOP:
+                      00117     ; Check each button and toggle the corresponding LED
+002D   0807           00118     MOVF    PORTC, W           ; Read PORTC (buttons)
+002E   390F           00119     ANDLW   BUTTON_MASK        ; Mask out unused bits (RC0-RC3)
+002F   3A0F           00120     XORLW   BUTTON_MASK        ; Invert the button states (active low)
+0030   00A1           00121     MOVWF   TEMP_REG           ; Store the button states in TEMP_REG
+                      00122 
+                      00123     ; Loop through each button-LED pair
+0031   3000           00124     MOVLW   0x00               ; Start with RB0/RC0
+0032   00A2           00125     MOVWF   INDEX_REG          ; Use INDEX_REG to track the current pair
+                      00126 
+0033                  00127 CHECK_BUTTONS:
+0033   0CA1           00128     RRF     TEMP_REG, F        ; Rotate button states to the right
+0034   1C03           00129     BTFSS   STATUS, C          ; Skip if the current button is pressed
+0035   2???           00130     GOTO    NEXT_BUTTON        ; If not pressed, check the next button
+                      00131 
+                      00132     ; Turn on the corresponding LED
+0036   0822           00133     MOVF    INDEX_REG, W       ; Get the current index
+0037   2???           00134     CALL    TURN_ON_LED        ; Call the turn-on function
+                      00135     
+0038   2???           00136     CALL    DELAY_1S
+                      00137         ; Turn off the LED
+0039   0822           00138     MOVF    INDEX_REG, W       ; Get the current index
+003A   2???           00139     CALL    TURN_OFF_LED       ; Call the turn-off function   
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00140 
+                      00141     ; Check if all pairs have been pressed
+003B   083A           00142     MOVF    ClicksCounter, W   ; Move the value of ClicksCounter into W
+003C   1D03           00143     BTFSS   STATUS, Z          ; Skip the next instruction if ClicksCounter is 0
+003D   2???           00144     GOTO    NEXT_BUTTON      ; If ClicksCounter is not zero, continue 
+                      00145 
+                      00146     ; If ClicksCounter is zero, call checkPlayerInput
+003E   2???           00147     CALL    checkPlayerInput   ; Compare player input with the LED sequence
+                      00148  
+003F   183E           00149     BTFSC   IsSuccess, 0    ; Check if bit 0 of IsSuccess is clear (0)  --> skip 
+0040   2???           00150     GOTO    NextLevel     ; If not (attempt is success), jump to next level
+                      00151   
+                      00152     ; Decrement AttemptsCounter and check if it reaches zero
+0041   0BB9           00153     DECFSZ  AttemptsCounter, F ; Decrement AttemptsCounter, skip next instruction if zero
+0042   2???           00154     GOTO    RESET_COUNTERS     ; If AttemptsCounter is not zero, reset counters for the next attempt
+                      00155 
+                      00156     ; If AttemptsCounter is zero, end the game or reset
+0043   2???           00157     GOTO    GAME_OVER          ; Handle game over logic
+                      00158 
+0044                  00159 NEXT_BUTTON:
+0044   0AA2           00160     INCF    INDEX_REG, F       ; Move to next button pair
+0045   1D22           00161     BTFSS   INDEX_REG, 2       ; Check if all pairs processed
+0046   2???           00162     GOTO    CHECK_BUTTONS      ; Continue if not
+0047   2???           00163     CALL    CHECK_TIMEOUT      ; Check for timeout after all buttons
+0048   2???           00164     GOTO    MAIN_LOOP          ; Repeat main loop
+                      00165    
+0049                  00166 RESET_COUNTERS:          ;Reset counters after each attempt
+0049   083F           00167     MOVF    LevelsCounter, W   ; Move the value of levels counter into W
+004A   3E03           00168     ADDLW   0x03        ; Add the level number to the initial value
+004B   00BA           00169     MOVWF   ClicksCounter
+                      00170 
+004C   3000           00171     MOVLW   0x00               ; Reset Counter3 (address offset for PlayerInput)
+004D   00BB           00172     MOVWF   Counter3
+004E   2???           00173     GOTO    MAIN_LOOP    ; Repeat the main loop for the next attempt
+                      00174 
+004F                  00175 GAME_OVER:
+004F   2???           00176     CALL    DisplayGameOver    ; Show "Game Over!"
+0050   01BF           00177    CLRF    LevelsCounter      ; Reset to Level 1
+0051   01BE           00178     CLRF    IsSuccess
+0052   01B9           00179     CLRF    AttemptsCounter
+0053   2???           00180     GOTO    MAIN               ; Jump back to restart game
+0054                  00181 NextLevel:
+0054   0ABF           00182     INCF    LevelsCounter, F   ; Increment level counter
+                      00183 
+                      00184     ; Check if all levels completed (e.g., 5 levels)
+0055   3014           00185     MOVLW   D'20'               ; Maximum level (adjust as needed)
+0056   023F           00186     SUBWF   LevelsCounter, W
+0057   1C03           00187     BTFSS   STATUS, C          ; Skip if LevelsCounter < 5
+0058   2???           00188     GOTO    ContinueNextLevel
+                      00189 
+                      00190     ; All levels completed: Reset and restart
+0059   2???           00191     CALL    DisplayMessages
+005A   01BF           00192     CLRF    LevelsCounter      ; Reset to Level 1
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+005B   01BE           00193     CLRF    IsSuccess
+005C   01B9           00194     CLRF    AttemptsCounter
+005D   2???           00195     GOTO    MAIN               ; Jump back to restart game
+                      00196 
+005E                  00197 ContinueNextLevel:
+                      00198     ; Proceed to next level setup
+005E   2???           00199     CALL    Delay1Second
+005F   2???           00200     CALL    Delay1Second
+0060   2???           00201     CALL    LevelMessage
+0061   2???           00202     CALL    Delay1Second
+0062   2???           00203     CALL    Delay1Second
+0063   2???           00204     CALL    GenerateLEDSequence
+0064   2???           00205     CALL    DisplayLEDSequence
+0065   2???           00206     CALL    Delay1Second
+0066   03BE           00207     DECF    IsSuccess, F       ; Reset IsSuccess
+0067   3003           00208     MOVLW   0x03
+0068   00B9           00209     MOVWF   AttemptsCounter
+0069   2???           00210     GOTO    RESET_COUNTERS
+                      00211 
+                      00212 
+                      00213       
+                      00214 ; Subroutine to turn on the LED corresponding to the index in W
+006A                  00215 TURN_ON_LED:
+006A   0782           00216     ADDWF   PCL, F             ; Jump to the appropriate LED turn-on based on W
+006B   2???           00217     GOTO    TURN_ON_RB0        ; Turn on RB0
+006C   2???           00218     GOTO    TURN_ON_RB1        ; Turn on RB1
+006D   2???           00219     GOTO    TURN_ON_RB2        ; Turn on RB2
+006E   2???           00220     GOTO    TURN_ON_RB3        ; Turn on RB3
+                      00221 
+006F                  00222 TURN_ON_RB0:
+006F   1406           00223     BSF     PORTB, 0           ; Turn on RB0
+0070   3001           00224     MOVLW   0x01               ; LED1 (RB0)
+0071   2???           00225     CALL    STORE_PLAYER_INPUT ; Store in PlayerInput + Counter3
+0072   03BA           00226     DECF    ClicksCounter, F   ; Decrement ClicksCounter
+0073   01C0           00227         CLRF    TimeoutCounter     ; Reset timeout counter
+                      00228 
+0074   0008           00229     RETURN
+                      00230 
+0075                  00231 TURN_ON_RB1:
+0075   1486           00232     BSF     PORTB, 1           ; Turn on RB1
+0076   3002           00233     MOVLW   0x02               ; LED2 (RB1)
+0077   2???           00234     CALL    STORE_PLAYER_INPUT ; Store in PlayerInput + Counter3
+0078   03BA           00235     DECF    ClicksCounter, F        ;decrement number of clicks    CLRF    TimeoutCounter     ; Reset ti
+                            meout counter
+                      00236 
+0079   0008           00237     RETURN
+                      00238 
+007A                  00239 TURN_ON_RB2:
+007A   1506           00240     BSF     PORTB, 2           ; Turn on RB2
+007B   3004           00241     MOVLW   0x04               ; LED3 (RB2)
+007C   2???           00242     CALL    STORE_PLAYER_INPUT ; Store in PlayerInput + Counter3
+007D   03BA           00243     DECF    ClicksCounter, F        ;decrement number of clicks
+007E   01C0           00244         CLRF    TimeoutCounter     ; Reset timeout counter
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00245 
+007F   0008           00246     RETURN
+                      00247 
+0080                  00248 TURN_ON_RB3:
+0080   1586           00249     BSF     PORTB, 3           ; Turn on RB3
+0081   3008           00250     MOVLW   0x08               ; LED4 (RB3)
+0082   2???           00251     CALL    STORE_PLAYER_INPUT ; Store in PlayerInput + Counter3
+0083   03BA           00252     DECF    ClicksCounter, F        ;decrement number of clicks
+0084   01C0           00253         CLRF    TimeoutCounter     ; Reset timeout counter
+                      00254 
+0085   0008           00255     RETURN
+                      00256     
+0086                  00257 CHECK_TIMEOUT:
+0086   1283 1303      00258     BANKSEL INTCON             ; Access INTCON register
+0088   1D0B           00259     BTFSS   INTCON, TMR0IF     ; Check if Timer0 overflowed
+0089   0008           00260     RETURN                     ; Return if no overflow
+008A   110B           00261     BCF     INTCON, TMR0IF     ; Clear Timer0 overflow flag
+008B   0AC0           00262     INCF    TimeoutCounter, F  ; Increment timeout counter
+008C   3031           00263     MOVLW   31                 ; 31 overflows ˜ 2 seconds
+008D   0240           00264     SUBWF   TimeoutCounter, W
+008E   1C03           00265     BTFSS   STATUS, C          ; Check if TimeoutCounter >= 31
+008F   0008           00266     RETURN                     ; Return if not yet 2 seconds
+0090   2???           00267     CALL    checkPlayerInput   ; Timeout occurred, check input
+0091   2???           00268     CALL    ClearPlayerInput   ; Clear the PlayerInput array
+                      00269   ;;  DECF    AttemptsCounter, F ; Decrement AttemptsCounter, skip next instruction if zero
+0092   01C0           00270     CLRF    TimeoutCounter     ; Reset timeout counter
+                      00271      ; Decrement AttemptsCounter and check if it reaches zero
+0093   0BB9           00272     DECFSZ  AttemptsCounter, F ; Decrement AttemptsCounter, skip next instruction if zero
+0094   2???           00273     GOTO    RESET_COUNTERS     ; If AttemptsCounter is not zero, reset counters for the next attempt
+Warning[203]: Found opcode in column 1. (GOTO)
+0095   2???           00274 GOTO    GAME_OVER          ; Handle game over logic
+0096   0008           00275     RETURN
+                      00276         ; Repeat main loop
+                      00277 ; ClearPlayerInput subroutine
+0097                  00278 ClearPlayerInput:
+0097   302D           00279     MOVLW   PlayerInput      ; Load the starting address of PlayerInput
+0098   0084           00280     MOVWF   FSR              ; Store it in the File Select Register (FSR)
+0099   3004           00281     MOVLW   0x04             ; Load the number of bytes to clear (4 bytes for Level 1)
+009A   00A6           00282     MOVWF   Counter          ; Store in Counter
+                      00283 
+009B                  00284 ClearLoop:
+009B   0180           00285     CLRF    INDF             ; Clear the byte pointed to by FSR
+009C   0A84           00286     INCF    FSR, F           ; Move to the next byte in PlayerInput
+009D   0BA6           00287     DECFSZ  Counter, F       ; Decrement Counter, skip if zero
+009E   2???           00288     GOTO    ClearLoop        ; Repeat until all bytes are cleared
+                      00289 
+009F   0008           00290     RETURN                   ; Return from the subroutine
+00A0                  00291 STORE_PLAYER_INPUT:
+00A0   00BC           00292     MOVWF   TEMP_REG2           ; Temporarily store the LED value in TEMP_REG
+00A1   083B           00293     MOVF    Counter3, W   ; Move the value of Counter3 into W
+00A2   3E2D           00294     ADDLW   PlayerInput        ; Add the base address of PlayerInput to W
+00A3   0084           00295     MOVWF   FSR                ; Store the result in FSR (pointer to PlayerInput + ClicksCounter)
+00A4   083C           00296     MOVF    TEMP_REG2, W        ; Move the LED value into W
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00A5   0080           00297     MOVWF   INDF               ; Store the value in W at the address pointed to by FSR
+00A6   0ABB           00298     INCF    Counter3, F   ; Increment Counter3
+00A7   0008           00299     RETURN    
+                      00300     
+                      00301     
+                      00302     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;
+                      00303     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;
+                      00304     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;
+                      00305     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;
+                      00306     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;
+                      00307 ; Generate a fixed LED sequence
+                      00308 ; ======== Generate a Fixed LED Sequence ========
+                      00309 
+00A8                  00310 GenerateLEDSequence:
+                      00311 
+                      00312     ; Read Timer0 multiple times for better entropy
+00A8   0801           00313     MOVF    TMR0, W          ; Read Timer0
+00A9   3E55           00314     ADDLW   0x55             ; Add a non-zero value to avoid zero
+00AA   00F0           00315     MOVWF   SEED             ; Store as seed
+00AB   1BF0           00316     BTFSC   SEED, 7          ; Ensure high bit is not zero
+00AC   2???           00317     GOTO    Seed_OK
+00AD   09F0           00318     COMF    SEED, F          ; Invert bits if high bit is zero
+00AE                  00319 Seed_OK:
+                      00320     ; Re-seed the RNG with Timer0 value
+00AE   0801           00321     MOVF    TMR0, W          ; Read Timer0 value
+00AF   1903           00322     BTFSC   STATUS, Z        ; Avoid zero seed
+00B0   3E05           00323     ADDLW   0x05             ; Add a small offset if Timer0 is zero
+00B1   00F0           00324     MOVWF   SEED             ; Update the seed
+                      00325 
+                      00326     ; Initialize loop counter (LevelsCounter + 2)
+00B2   083F           00327     MOVF    LevelsCounter, W ; Load LevelsCounter into W register
+00B3   3E03           00328     ADDLW   0x03             ; Add 2 to LevelsCounter
+00B4   00F3           00329     MOVWF   LoopCounter      ; Store LevelsCounter + 2 in LoopCounter
+                      00330 
+                      00331     ; Initialize pointer to LEDSequence
+00B5   3027           00332     MOVLW   LEDSequence      ; Load the starting address of LEDSequence
+00B6   0084           00333     MOVWF   FSR              ; Store it in the File Select Register (FSR)
+                      00334 
+00B7                  00335 GenerateLoop:
+00B7   2???           00336     CALL    RANDOM           ; Generate a random number
+00B8   0080           00337     MOVWF   INDF             ; Store the random number in the address pointed by FSR
+00B9   0A84           00338     INCF    FSR, F           ; Increment FSR to point to the next position in LEDSequence
+                      00339 
+00BA   0BF3           00340     DECFSZ  LoopCounter, F   ; Decrement LoopCounter and skip next instruction if zero
+00BB   2???           00341     GOTO    GenerateLoop     ; Repeat the loop if LoopCounter is not zero
+                      00342 
+00BC   0008           00343     RETURN                   ; Return from the subroutine
+                      00344 
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00345 ; ======== RANDOM Number Generator ========
+00BD                  00346 RANDOM:
+00BD   0DF0           00347     RLF     SEED, F          ; Shift left SEED into carry
+00BE   1C03           00348     BTFSS   STATUS, C        ; Skip if carry is 1 (MSB was 1)
+00BF   2???           00349     GOTO    NO_XOR
+00C0   308D           00350     MOVLW   0x8D             ; Correct polynomial: 0x8D (x^8 + x^6 + x^5 + x^4 + 1)
+00C1   06F0           00351     XORWF   SEED, F          ; Apply feedback to SEED
+00C2                  00352 NO_XOR:
+00C2   0870           00353     MOVF    SEED, W          ; Load SEED into W
+00C3   3903           00354     ANDLW   0x03             ; Mask to 0-3 (lower 2 bits)
+00C4   2???           00355     CALL    LOOKUP_TABLE     ; Get LED pattern from lookup
+00C5   0008           00356     RETURN
+                      00357 
+                      00358 ; ======== LOOKUP TABLE ========
+00C6                  00359 LOOKUP_TABLE:
+00C6   0782           00360     ADDWF   PCL, F
+00C7   3401           00361     RETLW   0x01   ; Index 0 ? 0x01
+00C8   3402           00362     RETLW   0x02   ; Index 1 ? 0x02
+00C9   3404           00363     RETLW   0x04   ; Index 2 ? 0x04
+00CA   3408           00364     RETLW   0x08   ; Index 3 ? 0x08
+                      00365 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      00366 ;;;;;;;;;;;;;;;;;;;;;;;; Display the LED sequence;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+00CB                  00367 DisplayLEDSequence:
+                      00368     ; Initialize loop counter (LevelsCounter + 2)
+00CB   083F           00369     MOVF    LevelsCounter, W   ; Load LevelsCounter into W register
+00CC   3E03           00370     ADDLW   0x03               ; Add 2 to LevelsCounter
+00CD   00A6           00371     MOVWF   Counter            ; Store LevelsCounter + 2 in Counter
+                      00372 
+                      00373     ; Initialize pointer to LEDSequence
+00CE   3027           00374     MOVLW   LEDSequence        ; Point to the start of the sequence
+00CF   0084           00375     MOVWF   FSR                ; Store in FSR (File Select Register)
+                      00376 
+00D0                  00377 DisplayLoop:
+00D0   0800           00378     MOVF    INDF, W            ; Load the current LED pattern from the address pointed by FSR
+00D1   0086           00379     MOVWF   PORTB              ; Turn on the LED by writing to PORTB
+00D2   2???           00380     CALL    Delay1Second       ; Keep it on for 1 second
+00D3   2???           00381     CALL    Delay1Second       ; Keep it on for another 1 second (total 2 seconds)
+00D4   0186           00382     CLRF    PORTB              ; Turn off the LED
+00D5   2???           00383     CALL    Delay1Second       ; Keep it off for 1 second
+                      00384 
+00D6   0A84           00385     INCF    FSR, F             ; Move to the next LED in the sequence
+00D7   0BA6           00386     DECFSZ  Counter, F         ; Decrement Counter, skip if zero
+00D8   2???           00387     GOTO    DisplayLoop        ; Repeat until all LEDs are displayed
+                      00388 
+00D9   0008           00389     RETURN
+                      00390  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      00391  
+                      00392  
+                      00393  
+                      00394  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;;;;;;
+                      00395  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;;;;;;
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00396  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;   Delay ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;
+                      00397  
+                      00398 ; Delay subroutine (1 second)
+00DA                  00399 Delay1Second:
+00DA   30FF           00400     MOVLW   0xFF
+00DB   00B6           00401     MOVWF   Delay1
+00DC   00B7           00402     MOVWF   Delay2
+00DD                  00403 DelayLoop:
+00DD   0BB6           00404     DECFSZ  Delay1, F
+00DE   2???           00405     GOTO    DelayLoop
+00DF   0BB7           00406     DECFSZ  Delay2, F
+00E0   2???           00407     GOTO    DelayLoop
+00E1   0008           00408     RETURN
+                      00409 
+                      00410 ; Subroutine for 1-second delay
+00E2                  00411 DELAY_1S:
+00E2   3007           00412     MOVLW   DELAY_1S_COUNT1    ; Load outer loop counter
+00E3   00A3           00413     MOVWF   COUNT1             ; Store in COUNT1
+                      00414 
+00E4                  00415 DELAY_OUTER:
+00E4   30FF           00416     MOVLW   DELAY_1S_COUNT2    ; Load middle loop counter
+00E5   00A4           00417     MOVWF   COUNT2             ; Store in COUNT2
+                      00418 
+00E6                  00419 DELAY_MIDDLE:
+00E6   30FF           00420     MOVLW   DELAY_1S_COUNT3    ; Load inner loop counter
+00E7   00A5           00421     MOVWF   COUNT3             ; Store in COUNT3
+                      00422 
+00E8                  00423 DELAY_INNER:
+00E8   0BA5           00424     DECFSZ  COUNT3, F          ; Decrement COUNT3 and skip if zero
+00E9   2???           00425     GOTO    DELAY_INNER        ; Repeat inner loop
+                      00426 
+00EA   0BA4           00427     DECFSZ  COUNT2, F          ; Decrement COUNT2 and skip if zero
+00EB   2???           00428     GOTO    DELAY_MIDDLE       ; Repeat middle loop
+                      00429 
+00EC   0BA3           00430     DECFSZ  COUNT1, F          ; Decrement COUNT1 and skip if zero
+00ED   2???           00431     GOTO    DELAY_OUTER        ; Repeat outer loop
+                      00432 
+00EE   0008           00433     RETURN                     ; Return from delay subroutine
+                      00434     
+                      00435     
+                      00436 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;;;;;
+                      00437 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                            ;;;;;;;;;;;;;;;;;;
+                      00438 
+                      00439 
+                      00440 ; Subroutine to turn off the LED corresponding to the index in W
+00EF                  00441 TURN_OFF_LED:
+00EF   0782           00442     ADDWF   PCL, F             ; Jump to the appropriate LED turn-off based on W
+00F0   2???           00443     GOTO    TURN_OFF_RB0       ; Turn off RB0
+00F1   2???           00444     GOTO    TURN_OFF_RB1       ; Turn off RB1
+00F2   2???           00445     GOTO    TURN_OFF_RB2       ; Turn off RB2
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00F3   2???           00446     GOTO    TURN_OFF_RB3       ; Turn off RB3
+                      00447 
+00F4                  00448 TURN_OFF_RB0:
+00F4   1006           00449     BCF     PORTB, 0           ; Turn off RB0
+00F5   0008           00450     RETURN
+                      00451 
+00F6                  00452 TURN_OFF_RB1:
+00F6   1086           00453     BCF     PORTB, 1           ; Turn off RB1
+00F7   0008           00454     RETURN
+                      00455 
+00F8                  00456 TURN_OFF_RB2:
+00F8   1106           00457     BCF     PORTB, 2           ; Turn off RB2
+00F9   0008           00458     RETURN
+                      00459 
+00FA                  00460 TURN_OFF_RB3:
+00FA   1186           00461     BCF     PORTB, 3           ; Turn off RB3
+00FB   0008           00462     RETURN
+                      00463 
+                      00464 ; Check player input against the LED sequence
+00FC                  00465 checkPlayerInput:
+                      00466     ; Initialize LoopCounter = LevelsCounter + 2
+00FC   083F           00467     MOVF    LevelsCounter, W
+00FD   3E03           00468     ADDLW   0x03
+00FE   00F3           00469     MOVWF   LoopCounter
+                      00470 
+                      00471     ; Initialize pointers
+00FF   3027           00472     MOVLW   LEDSequence
+0100   00F4           00473     MOVWF   FSR_Backup       ; FSR_Backup points to LEDSequence
+0101   302D           00474     MOVLW   PlayerInput
+0102   00F5           00475     MOVWF   TempPointer      ; TempPointer points to PlayerInput
+                      00476 
+0103                  00477 CompareLoop:
+                      00478     ; Load LEDSequence byte into TEMP
+0103   0874           00479     MOVF    FSR_Backup, W    ; Load LEDSequence pointer into W
+0104   0084           00480     MOVWF   FSR              ; Set FSR to point to LEDSequence
+0105   0800           00481     MOVF    INDF, W          ; W = current byte of LEDSequence
+0106   00F1           00482     MOVWF   TEMP             ; Save in TEMP
+                      00483 
+                      00484     ; Load PlayerInput byte into W
+0107   0875           00485     MOVF    TempPointer, W   ; Load PlayerInput pointer into W
+0108   0084           00486     MOVWF   FSR              ; Set FSR to point to PlayerInput
+0109   0800           00487     MOVF    INDF, W          ; W = current byte of PlayerInput
+                      00488 
+                      00489     ; Compare TEMP (LEDSequence) with W (PlayerInput)
+010A   0271           00490     SUBWF   TEMP, W          ; TEMP - W ? Check Z flag
+010B   1D03           00491     BTFSS   STATUS, Z        ; Skip next line if bytes are equal
+010C   2???           00492     GOTO    DisplayFailure   ; Bytes differ ? jump to failure
+                      00493 
+                      00494     ; Increment pointers for next byte
+010D   0AF4           00495     INCF    FSR_Backup, F    ; Move to next byte in LEDSequence
+010E   0AF5           00496     INCF    TempPointer, F   ; Move to next byte in PlayerInput
+                      00497 
+                      00498     ; Decrement LoopCounter and check if done
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+010F   0BF3           00499     DECFSZ  LoopCounter, F
+0110   2???           00500     GOTO    CompareLoop      ; Repeat until LoopCounter = 0
+                      00501 
+                      00502     ; All bytes matched ? Success
+0111   3001           00503     MOVLW   0x01
+0112   00BE           00504     MOVWF   IsSuccess
+0113   2???           00505     GOTO    DisplaySuccess
+                      00506 
+                      00507  
+0114   2???           00508     GOTO MAIN_LOOP
+                      00509 
+0115                  00510 InputMismatch:
+0115   2???           00511     CALL    DisplayFailure
+0116   0008           00512     RETURN
+                      00513 
+                      00514 ; Display success message
+0117                  00515 DisplaySuccess:
+0117   2???           00516     CALL ClearLCD
+                      00517     
+0118   3080           00518     MOVLW 0x80          ; Move cursor to the second line
+0119   2???           00519     CALL SendCommand
+011A   3043           00520     MOVLW 'C'
+011B   2???           00521     CALL SendData
+011C   306F           00522     MOVLW 'o'
+011D   2???           00523     CALL SendData
+011E   306E           00524     MOVLW 'n'
+011F   2???           00525     CALL SendData
+0120   3067           00526     MOVLW 'g'
+0121   2???           00527     CALL SendData
+0122   3072           00528     MOVLW 'r'
+0123   2???           00529     CALL SendData
+0124   3061           00530     MOVLW 'a'
+0125   2???           00531     CALL SendData
+0126   3074           00532     MOVLW 't'
+0127   2???           00533     CALL SendData
+0128   3075           00534     MOVLW 'u'
+0129   2???           00535     CALL SendData
+012A   306C           00536     MOVLW 'l'
+012B   2???           00537     CALL SendData
+012C   3061           00538     MOVLW 'a'
+012D   2???           00539     CALL SendData
+012E   3074           00540     MOVLW 't'
+012F   2???           00541     CALL SendData
+0130   3069           00542     MOVLW 'i'
+0131   2???           00543     CALL SendData
+0132   306F           00544     MOVLW 'o'
+0133   2???           00545     CALL SendData
+0134   306E           00546     MOVLW 'n'
+0135   2???           00547     CALL SendData
+0136   3073           00548     MOVLW 's'
+0137   2???           00549     CALL SendData
+0138   3021           00550     MOVLW '!'
+0139   2???           00551     CALL SendData
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+013A   3021           00552     MOVLW '!'
+013B   2???           00553     CALL SendData
+013C   0008           00554     RETURN
+                      00555 
+                      00556 ; Display failure attempt message (Try again)
+013D                  00557 DisplayFailure:
+013D   2???           00558     CALL ClearLCD
+                      00559 
+013E   3080           00560     MOVLW 0x80          ; Move cursor to the second line
+013F   2???           00561     CALL SendCommand
+0140   3054           00562     MOVLW 'T'
+0141   2???           00563     CALL SendData
+0142   3072           00564     MOVLW 'r'
+0143   2???           00565     CALL SendData
+0144   3079           00566     MOVLW 'y'
+0145   2???           00567     CALL SendData
+0146   3020           00568     MOVLW ' '
+0147   2???           00569     CALL SendData
+0148   3061           00570     MOVLW 'a'
+0149   2???           00571     CALL SendData
+014A   3067           00572     MOVLW 'g'
+014B   2???           00573     CALL SendData
+014C   3061           00574     MOVLW 'a'
+014D   2???           00575     CALL SendData
+014E   3069           00576     MOVLW 'i'
+014F   2???           00577     CALL SendData
+0150   306E           00578     MOVLW 'n'
+0151   2???           00579     CALL SendData
+0152   0008           00580     RETURN
+                      00581 
+                      00582 ; Display Game Over meesage
+0153                  00583 DisplayGameOver:
+0153   2???           00584     CALL ClearLCD
+                      00585 
+0154   3080           00586     MOVLW 0x80          ; Move cursor to the second line
+0155   2???           00587     CALL SendCommand
+0156   3047           00588     MOVLW 'G'
+0157   2???           00589     CALL SendData
+0158   3061           00590     MOVLW 'a'
+0159   2???           00591     CALL SendData
+015A   306D           00592     MOVLW 'm'
+015B   2???           00593     CALL SendData
+015C   3065           00594     MOVLW 'e'
+015D   2???           00595     CALL SendData
+015E   3020           00596     MOVLW ' '
+015F   2???           00597     CALL SendData
+0160   304F           00598     MOVLW 'O'
+0161   2???           00599     CALL SendData
+0162   3076           00600     MOVLW 'v'
+0163   2???           00601     CALL SendData
+0164   3065           00602     MOVLW 'e'
+0165   2???           00603     CALL SendData
+0166   3072           00604     MOVLW 'r'
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 13
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0167   2???           00605     CALL SendData
+0168   3021           00606     MOVLW '!'
+0169   2???           00607     CALL SendData
+                      00608     
+016A   0008           00609     RETURN
+                      00610     
+016B                  00611 BlinkMessage:
+016B   3003           00612     MOVLW   0x03               ; Set the number of blinks (3)
+016C   00BD           00613     MOVWF   BlinkCounter       ; Store in BlinkCounter
+                      00614 
+016D                  00615 BlinkLoop:
+                      00616     ; Display the message
+016D   2???           00617     CALL    DisplayMessages    ; Display "Press any button to start"
+016E   2???           00618     CALL    Delay1Second       ; Wait for 1 second
+                      00619 
+                      00620     ; Clear the LCD
+016F   2???           00621     CALL    ClearLCD           ; Clear the LCD
+0170   2???           00622     CALL    Delay1Second       ; Wait for 1 second
+                      00623 
+                      00624     ; Decrement BlinkCounter and check if it reaches zero
+0171   0BBD           00625     DECFSZ  BlinkCounter, F    ; Decrement BlinkCounter, skip next instruction if zero
+0172   2???           00626     GOTO    BlinkLoop          ; If BlinkCounter is not zero, repeat the blink loop
+                      00627 
+0173   0008           00628     RETURN                     ; Return after blinking 3 times
+                      00629     
+0174                  00630 DisplayMessages:
+                      00631     ; First line: "Press any button"
+0174   3080           00632     MOVLW 0x80          ; Move cursor to the first line
+0175   2???           00633     CALL SendCommand
+0176   3050           00634     MOVLW 'P'
+0177   2???           00635     CALL SendData
+0178   3072           00636     MOVLW 'r'
+0179   2???           00637     CALL SendData
+017A   3065           00638     MOVLW 'e'
+017B   2???           00639     CALL SendData
+017C   3073           00640     MOVLW 's'
+017D   2???           00641     CALL SendData
+017E   3073           00642     MOVLW 's'
+017F   2???           00643     CALL SendData
+0180   3020           00644     MOVLW ' '
+0181   2???           00645     CALL SendData
+0182   3061           00646     MOVLW 'a'
+0183   2???           00647     CALL SendData
+0184   306E           00648     MOVLW 'n'
+0185   2???           00649     CALL SendData
+0186   3079           00650     MOVLW 'y'
+0187   2???           00651     CALL SendData
+0188   3020           00652     MOVLW ' '
+0189   2???           00653     CALL SendData
+018A   3062           00654     MOVLW 'b'
+018B   2???           00655     CALL SendData
+018C   3075           00656     MOVLW 'u'
+018D   2???           00657     CALL SendData
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 14
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+018E   3074           00658     MOVLW 't'
+018F   2???           00659     CALL SendData
+0190   3074           00660     MOVLW 't'
+0191   2???           00661     CALL SendData
+0192   306F           00662     MOVLW 'o'
+0193   2???           00663     CALL SendData
+0194   306E           00664     MOVLW 'n'
+0195   2???           00665     CALL SendData
+                      00666 
+                      00667     ; Second line: "to start"
+0196   30C0           00668     MOVLW 0xC0          ; Move cursor to the second line
+0197   2???           00669     CALL SendCommand
+0198   3074           00670     MOVLW 't'
+0199   2???           00671     CALL SendData
+019A   306F           00672     MOVLW 'o'
+019B   2???           00673     CALL SendData
+019C   3020           00674     MOVLW ' '
+019D   2???           00675     CALL SendData
+019E   3073           00676     MOVLW 's'
+019F   2???           00677     CALL SendData
+01A0   3074           00678     MOVLW 't'
+01A1   2???           00679     CALL SendData
+01A2   3061           00680     MOVLW 'a'
+01A3   2???           00681     CALL SendData
+01A4   3072           00682     MOVLW 'r'
+01A5   2???           00683     CALL SendData
+01A6   3074           00684     MOVLW 't'
+01A7   2???           00685     CALL SendData
+01A8   0008           00686     RETURN
+                      00687 
+01A9                  00688 LevelMessage:
+01A9   2???           00689     CALL ClearLCD
+                      00690 
+01AA   3080           00691     MOVLW 0x80          ; Move cursor to the second line
+01AB   2???           00692     CALL SendCommand
+01AC   304C           00693     MOVLW 'L'
+01AD   2???           00694     CALL SendData
+01AE   3045           00695     MOVLW 'E'
+01AF   2???           00696     CALL SendData
+01B0   3056           00697     MOVLW 'V'
+01B1   2???           00698     CALL SendData
+01B2   3045           00699     MOVLW 'E'
+01B3   2???           00700     CALL SendData
+01B4   304C           00701     MOVLW 'L'
+01B5   2???           00702     CALL SendData
+01B6   3020           00703     MOVLW ' '
+01B7   2???           00704     CALL SendData
+01B8   083F           00705     MOVF LevelsCounter, W  ; Move the value of LevelsCounter into W
+01B9   2???           00706     CALL ConvertToASCII    ; Convert it to ASCII before displaying
+01BA   2???           00707     CALL SendData
+01BB   3021           00708     MOVLW '!'
+01BC   2???           00709     CALL SendData
+01BD   0008           00710     RETURN
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 15
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00711 
+01BE                  00712 ConvertToASCII:
+01BE   3E31           00713     ADDLW 0x31    ; Convert binary 0-9 to ASCII ('0' to '9')   ;Used 31 instead to 30 cuz the initial va
+                            lue of levelscounter is 0 so we need to change it to '1' not 0 
+01BF   0008           00714     RETURN
+                      00715     
+                      00716 ; Clear the LCD
+01C0                  00717 ClearLCD:
+01C0   3001           00718     MOVLW 0x01          ; Clear display command
+01C1   2???           00719     CALL SendCommand
+01C2   0008           00720     RETURN
+                      00721 
+                      00722 ; Delay subroutine (1 second)
+                      00723 
+                      00724 
+                      00725 ; Send command to LCD
+01C3                  00726 SendCommand:
+01C3   12F4           00727     BCF Select, RS      ; Clear RS (command mode)
+01C4   2???           00728     CALL send
+01C5   0008           00729     RETURN
+                      00730 
+                      00731 ; Send data to LCD
+01C6                  00732 SendData:
+01C6   16F4           00733     BSF Select, RS      ; Set RS (data mode)
+01C7   2???           00734     CALL send
+01C8   0008           00735     RETURN
+01C9                  00736 Delay:
+01C9   30FF           00737     MOVLW   0xFF            ; Adjust delay value as needed
+01CA   00B6           00738     MOVWF   Delay1
+01CB                  00739 DelayLoop2:
+01CB   0BB6           00740     DECFSZ  Delay1, F
+01CC   2???           00741     GOTO    DelayLoop2
+01CD   0008           00742     RETURN
+                      00743 ;INCLUDE "LCDIS_PORTD.INC" ; IF U WANT TO USE LCD ON PORT D
+Warning[205]: Found directive in column 1. (INCLUDE)
+                      00744 INCLUDE "LCDIS_PORTA.INC" ; IF U WANT TO USE LCD ON PORT A
+                      00001 ;--------------------------------------------------------------
+                      00002 ;       LCDIS.INC               MPB     19-12-05
+                      00003 ;
+                      00004 ;       Include file to operate 16x2 LCD display
+                      00005 ;       Uses GPR 70 - 75
+                      00006 ;       
+                      00007 ;       Final version
+                      00008 ;--------------------------------------------------------------
+                      00009 
+  00000070            00010 Timer1  EQU     70              ; 1ms count register
+  00000071            00011 TimerX  EQU     71              ; Xms count register
+  00000072            00012 Var     EQU     72              ; Output variable
+  00000073            00013 Point   EQU     73              ; Program table pointer
+  00000074            00014 Select  EQU     74              ; Used to set or clear RS bit
+  00000075            00015 OutCod  EQU     75              ; Temp store for output code
+                      00016 
+                      00017 
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 16
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  00000004            00018 E       EQU     4               ; Enable display input
+  00000005            00019 RS      EQU     5               ; Register select output bit
+                      00020 
+                      00021 ;--------------------------------------------------------------
+                      00022 ;       1ms delay with 1us cycle time (1000 cycles)
+                      00023 ;--------------------------------------------------------------
+01CE   30F9           00024 onems   MOVLW   D'249'          ; Count for 1ms delay 
+01CF   00F0           00025         MOVWF   Timer1          ; Load count
+01D0   0000           00026 loop1   NOP                     ; Pad for 4 cycle loop
+Message[305]: Using default destination of 1 (file).
+01D1   0BF0           00027         DECFSZ  Timer1          ; Count
+01D2   2???           00028         GOTO    loop1           ; until Z
+01D3   0008           00029         RETURN                  ; and finish
+                      00030 
+                      00031 ;--------------------------------------------------------------
+                      00032 ;       Delay Xms
+                      00033 ;       Receives count in W, uses Onems
+                      00034 ;--------------------------------------------------------------
+01D4   00F1           00035 xms     MOVWF   TimerX          ; Count for X ms
+01D5   2???           00036 loopX   CALL    onems           ; Delay 1ms
+Message[305]: Using default destination of 1 (file).
+01D6   0BF1           00037         DECFSZ  TimerX          ; Repeat X times 
+01D7   2???           00038         GOTO    loopX           ; until Z
+01D8   0008           00039         RETURN                  ; and finish
+                      00040 
+                      00041 ;--------------------------------------------------------------
+                      00042 ;       Generate data/command clock siganl E
+                      00043 ;--------------------------------------------------------------
+01D9   1605           00044 pulseE  BSF     PORTA,E         ; Set E high
+01DA   2???           00045         CALL    onems           ; Delay 1ms
+01DB   2???           00046         CALL    onems           ; Delay 1ms
+01DC   2???           00047         CALL    onems           ; Delay 1ms
+01DD   2???           00048         CALL    onems           ; Delay 1ms
+01DE   2???           00049         CALL    onems           ; Delay 1ms
+                      00050 
+01DF   1205           00051         BCF     PORTA,E         ; Reset E low
+                      00052 
+01E0   2???           00053         CALL    onems           ; Delay 1ms
+01E1   2???           00054         CALL    onems           ; Delay 1ms
+01E2   2???           00055         CALL    onems           ; Delay 1ms
+01E3   2???           00056         CALL    onems           ; Delay 1ms
+01E4   2???           00057         CALL    onems           ; Delay 1ms
+01E5   0008           00058         RETURN                  ; done
+                      00059 
+                      00060 ;--------------------------------------------------------------
+                      00061 ;       Send a command byte in two nibbles from RB4 - RB7
+                      00062 ;       Receives command in W, uses PulseE and Onems
+                      00063 ;--------------------------------------------------------------
+01E6   00F5           00064 send    MOVWF   OutCod          ; Store output code
+01E7   39F0           00065         ANDLW   0xF0            ; Clear low nybble
+01E8   00F2           00066         MOVWF Var
+Message[305]: Using default destination of 1 (file).
+01E9   0EF2           00067         SWAPF Var
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 17
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01EA   0872           00068         MOVF Var, w
+01EB   0085           00069         MOVWF   PORTA           ; Output high nybble
+                      00070 
+                      00071 
+01EC   1AF4           00072         BTFSC   Select,RS       ; Test RS bit
+01ED   1685           00073         BSF     PORTA,RS        ; and set for data
+                      00074 
+01EE   2???           00075         CALL    pulseE          ; and clock display register
+01EF   2???           00076         CALL    onems           ; wait 1ms for display
+                      00077 
+01F0   0875           00078         MOVF    OutCod,W        ; Retrieve output code
+01F1   390F           00079         ANDLW   0x0F            ; Clear low nybble
+01F2   0185           00080         CLRF PORTA
+01F3   0085           00081         MOVWF   PORTA           ; Output low nybble
+                      00082 
+01F4   1AF4           00083         BTFSC   Select,RS       ; Test RS bit
+01F5   1685           00084         BSF     PORTA,RS        ; and set for data
+                      00085 
+01F6   2???           00086         CALL    pulseE          ; and clock display register
+01F7   2???           00087         CALL    onems           ; wait 1ms for display
+01F8   0008           00088         RETURN                  ; done
+                      00089 
+                      00090 ;--------------------------------------------------------------
+                      00091 ;       Initialise the display
+                      00092 ;       Uses Send
+                      00093 ;--------------------------------------------------------------
+01F9   3064           00094 inid    MOVLW   D'100'          ; Load count for 100ms delay
+01FA   2???           00095         CALL    xms             ; and wait for display start
+01FB   300F           00096         MOVLW   0x0F    ; Mask for select code
+01FC   00F4           00097         MOVWF   Select          ; High nybble not masked
+                      00098 
+                      00099 
+01FD   1683 1303      00100         BANKSEL TRISA
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+01FF   0185           00101         CLRF TRISA
+                      00102         
+0200   1283 1303      00103         BANKSEL PORTA
+0202   0185           00104         CLRF PORTA
+                      00105         ; to convert to digital outputs
+0203   1683 1303      00106         BANKSEL ADCON1
+0205   3006           00107         MOVLW 0x06
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0206   009F           00108         MOVWF ADCON1
+                      00109 
+0207   1283 1303      00110         BANKSEL PORTA
+                      00111 
+                      00112         ;D5 = 0, D4 = 0, OF LCD SO PORTA0 = 1, PORTA1 = 1
+0209   3003           00113         MOVLW   0x03            ; Load initial nibble
+020A   0085           00114         MOVWF   PORTA           ; and output it to display
+020B   2???           00115         CALL    pulseE          ; Latch initial code
+020C   3005           00116         MOVLW   D'5'            ; Set delay 5ms
+020D   2???           00117         CALL    xms             ; and wait
+020E   2???           00118         CALL    pulseE          ; Latch initial code again
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 18
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+020F   2???           00119         CALL    onems           ; Wait 1ms
+0210   2???           00120         CALL    pulseE          ; Latch initial code again
+0211   1005           00121         BCF     PORTA,0         ; Set 4-bit mode
+0212   2???           00122         CALL    pulseE          ; Latch it
+                      00123         
+0213   3028           00124         MOVLW   0x28            ; Set 4-bit mode, 2 lines
+0214   2???           00125         CALL    send            ; and send code
+0215   3008           00126         MOVLW   0x08            ; Switch off display
+0216   2???           00127         CALL    send            ; and send code
+0217   3001           00128         MOVLW   0x01            ; Code to clear display
+0218   2???           00129         CALL    send            ; and send code
+0219   3006           00130         MOVLW   0x06            ; Enable cursor auto inc  
+021A   2???           00131         CALL    send            ; and send code
+021B   3080           00132         MOVLW   0x80            ; Zero display address
+021C   2???           00133         CALL    send            ; and send code
+021D   300C           00134         MOVLW   0x0C            ; Turn on display  
+021E   2???           00135         CALL    send            ; and send code
+                      00136 
+021F   0008           00137         RETURN                  ; Done
+                      00138 
+                      00139 ;--------------------------------------------------------------
+3FF1                  00745     END 
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 19
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADCS2                             00000006
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+AttemptsCounter                   00000039
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+BUTTON_MASK                       0000000F
+BlinkCounter                      0000003D
+BlinkLoop                         0000016D
+BlinkMessage                      0000016B
+C                                 00000000
+C1INV                             00000004
+C1OUT                             00000006
+C2INV                             00000005
+C2OUT                             00000007
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1                             00000015
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2                             0000001B
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 20
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CHECK_BUTTONS                     00000033
+CHECK_TIMEOUT                     00000086
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CIS                               00000003
+CKE                               00000006
+CKP                               00000004
+CM0                               00000000
+CM1                               00000001
+CM2                               00000002
+CMCON                             0000009C
+CMIE                              00000006
+CMIF                              00000006
+COUNT1                            00000023
+COUNT2                            00000024
+COUNT3                            00000025
+CREN                              00000004
+CSRC                              00000007
+CVR0                              00000000
+CVR1                              00000001
+CVR2                              00000002
+CVR3                              00000003
+CVRCON                            0000009D
+CVREN                             00000007
+CVROE                             00000006
+CVRR                              00000005
+ClearLCD                          000001C0
+ClearLoop                         0000009B
+ClearPlayerInput                  00000097
+ClicksCounter                     0000003A
+CompareLoop                       00000103
+ContinueNextLevel                 0000005E
+ConvertToASCII                    000001BE
+Counter                           00000026
+Counter3                          0000003B
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+DELAY_1S                          000000E2
+DELAY_1S_COUNT1                   00000007
+DELAY_1S_COUNT2                   000000FF
+DELAY_1S_COUNT3                   000000FF
+DELAY_INNER                       000000E8
+DELAY_MIDDLE                      000000E6
+DELAY_OUTER                       000000E4
+D_A                               00000005
+D_NOT_A                           00000005
+Delay                             000001C9
+Delay1                            00000036
+Delay1Second                      000000DA
+Delay2                            00000037
+DelayLoop                         000000DD
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 21
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+DelayLoop2                        000001CB
+DisplayFailure                    0000013D
+DisplayGameOver                   00000153
+DisplayLEDSequence                000000CB
+DisplayLoop                       000000D0
+DisplayMessages                   00000174
+DisplaySuccess                    00000117
+E                                 00000004
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+FSR_Backup                        00000074
+GAME_OVER                         0000004F
+GCEN                              00000007
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+GO_NOT_DONE                       00000002
+GenerateLEDSequence               000000A8
+GenerateLoop                      000000B7
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDEX                             00000072
+INDEX_REG                         00000022
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+Index_REG                         0000002A
+InputIndex                        00000032
+InputMismatch                     00000115
+IsSuccess                         0000003E
+LEDSequence                       00000027
+LEVEL                             00000031
+LOOKUP_TABLE                      000000C6
+LevelMessage                      000001A9
+LevelsCounter                     0000003F
+LoopCounter                       00000073
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 22
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+MAIN                              00000004
+MAIN_LOOP                         0000002D
+NEXT_BUTTON                       00000044
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+NO_XOR                            000000C2
+NextLevel                         00000054
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+OutCod                            00000075
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+PlayerInput                       0000002D
+Point                             00000073
+R                                 00000002
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 23
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RANDOM                            000000BD
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RC0                               00000000
+RC1                               00000001
+RC2                               00000002
+RC3                               00000003
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+RD0                               00000000
+RD1                               00000001
+RD2                               00000002
+RD3                               00000003
+RD4                               00000004
+RD5                               00000005
+RD6                               00000006
+RD7                               00000007
+RE0                               00000000
+RE1                               00000001
+RE2                               00000002
+READ_WRITE                        00000002
+RESET_COUNTERS                    00000049
+RP0                               00000005
+RP1                               00000006
+RS                                00000005
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 24
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+R_NOT_W                           00000002
+R_W                               00000002
+Random                            00000038
+S                                 00000003
+SEED                              00000070
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+STATUS                            00000003
+STATUS_REG                        00000020
+STORE_PLAYER_INPUT                000000A0
+SYNC                              00000004
+Seed_OK                           000000AE
+Select                            00000074
+SendCommand                       000001C3
+SendData                          000001C6
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TEMP                              00000071
+TEMP_REG                          00000021
+TEMP_REG2                         0000003C
+TMR0                              00000001
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 25
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISB                             00000086
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRISC                             00000087
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+TRISC3                            00000003
+TRISC4                            00000004
+TRISC5                            00000005
+TRISC6                            00000006
+TRISC7                            00000007
+TRISD                             00000088
+TRISD0                            00000000
+TRISD1                            00000001
+TRISD2                            00000002
+TRISD3                            00000003
+TRISD4                            00000004
+TRISD5                            00000005
+TRISD6                            00000006
+TRISD7                            00000007
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TURN_OFF_LED                      000000EF
+TURN_OFF_RB0                      000000F4
+TURN_OFF_RB1                      000000F6
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 26
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TURN_OFF_RB2                      000000F8
+TURN_OFF_RB3                      000000FA
+TURN_ON_LED                       0000006A
+TURN_ON_RB0                       0000006F
+TURN_ON_RB1                       00000075
+TURN_ON_RB2                       0000007A
+TURN_ON_RB3                       00000080
+TX8_9                             00000006
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+TempPointer                       00000075
+TimeoutCounter                    00000040
+Timer1                            00000070
+TimerX                            00000071
+UA                                00000001
+Var                               00000072
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+WaitForStartButton                0000001D
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_BOREN_OFF                        00003FBF
+_BOREN_ON                         00003FFF
+_CONFIG                           00002007
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00001FFF
+_CP_OFF                           00003FFF
+_CP_ON                            00001FFF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_DEVID1                           00002006
+_FOSC_EXTRC                       00003FFF
+_FOSC_HS                          00003FFE
+_FOSC_LP                          00003FFC
+_FOSC_XT                          00003FFD
+_HS_OSC                           00003FFE
+_IDLOC0                           00002000
+_IDLOC1                           00002001
+_IDLOC2                           00002002
+_IDLOC3                           00002003
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+MPASM  5.43                          MAIN.ASM   2-2-2025  18:34:41         PAGE 27
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDTE_OFF                         00003FFB
+_WDTE_ON                          00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_1FOURTH                      00003BFF
+_WRT_256                          00003DFF
+_WRT_HALF                         000039FF
+_WRT_OFF                          00003FFF
+_XT_OSC                           00003FFD
+__16F877A                         00000001
+__DEBUG                           1
+checkPlayerInput                  000000FC
+inid                              000001F9
+loop1                             000001D0
+loopX                             000001D5
+onems                             000001CE
+pulseE                            000001D9
+send                              000001E6
+xms                               000001D4
+
+Errors   :     0
+Warnings :     3 reported,     0 suppressed
+Messages :     9 reported,     0 suppressed
+
+

@@ -1,0 +1,154 @@
+MPLINK 4.41, Linker
+Linker Map File - Created Sun Feb 02 18:34:42 2025
+
+                                 Section Info
+                  Section       Type    Address   Location Size(Bytes)
+                ---------  ---------  ---------  ---------  ---------
+                   .org_0       code   0x000000    program   0x000002
+                   .cinit    romdata   0x000001    program   0x000004
+                   .org_1       code   0x000004    program   0x000438
+      .config_2007_MAIN.O       code   0x002007    program   0x000002
+
+
+
+                              Program Memory Usage 
+                               Start         End      
+                           ---------   ---------      
+                            0x000000    0x000002      
+                            0x000004    0x00021f      
+                            0x002007    0x002007      
+            544 out of 8454 program addresses used, program memory utilization is 6%
+
+
+
+                              Symbols - Sorted by Name
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+                BlinkLoop   0x00016d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             BlinkMessage   0x00016b    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+            CHECK_BUTTONS   0x000033    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+            CHECK_TIMEOUT   0x000086    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                 ClearLCD   0x0001c0    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                ClearLoop   0x00009b    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+         ClearPlayerInput   0x000097    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              CompareLoop   0x000103    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+        ContinueNextLevel   0x00005e    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           ConvertToASCII   0x0001be    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                 DELAY_1S   0x0000e2    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              DELAY_INNER   0x0000e8    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             DELAY_MIDDLE   0x0000e6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              DELAY_OUTER   0x0000e4    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                    Delay   0x0001c9    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             Delay1Second   0x0000da    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                DelayLoop   0x0000dd    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+               DelayLoop2   0x0001cb    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           DisplayFailure   0x00013d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+          DisplayGameOver   0x000153    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+       DisplayLEDSequence   0x0000cb    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              DisplayLoop   0x0000d0    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+          DisplayMessages   0x000174    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           DisplaySuccess   0x000117    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                GAME_OVER   0x00004f    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+      GenerateLEDSequence   0x0000a8    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             GenerateLoop   0x0000b7    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+            InputMismatch   0x000115    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             LOOKUP_TABLE   0x0000c6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             LevelMessage   0x0001a9    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                     MAIN   0x000004    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                MAIN_LOOP   0x00002d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              NEXT_BUTTON   0x000044    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                   NO_XOR   0x0000c2    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                NextLevel   0x000054    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                   RANDOM   0x0000bd    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           RESET_COUNTERS   0x000049    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+       STORE_PLAYER_INPUT   0x0000a0    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                  Seed_OK   0x0000ae    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              SendCommand   0x0001c3    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                 SendData   0x0001c6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_LED   0x0000ef    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB0   0x0000f4    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB1   0x0000f6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB2   0x0000f8    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB3   0x0000fa    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_LED   0x00006a    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB0   0x00006f    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB1   0x000075    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB2   0x00007a    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB3   0x000080    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+       WaitForStartButton   0x00001d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+         checkPlayerInput   0x0000fc    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                     inid   0x0001f9    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                    loop1   0x0001d0    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                    loopX   0x0001d5    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                    onems   0x0001ce    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                   pulseE   0x0001d9    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                     send   0x0001e6    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                      xms   0x0001d4    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+
+
+
+                              Symbols - Sorted by Address
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+                     MAIN   0x000004    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+       WaitForStartButton   0x00001d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                MAIN_LOOP   0x00002d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+            CHECK_BUTTONS   0x000033    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              NEXT_BUTTON   0x000044    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           RESET_COUNTERS   0x000049    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                GAME_OVER   0x00004f    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                NextLevel   0x000054    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+        ContinueNextLevel   0x00005e    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_LED   0x00006a    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB0   0x00006f    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB1   0x000075    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB2   0x00007a    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              TURN_ON_RB3   0x000080    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+            CHECK_TIMEOUT   0x000086    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+         ClearPlayerInput   0x000097    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                ClearLoop   0x00009b    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+       STORE_PLAYER_INPUT   0x0000a0    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+      GenerateLEDSequence   0x0000a8    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                  Seed_OK   0x0000ae    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             GenerateLoop   0x0000b7    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                   RANDOM   0x0000bd    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                   NO_XOR   0x0000c2    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             LOOKUP_TABLE   0x0000c6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+       DisplayLEDSequence   0x0000cb    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              DisplayLoop   0x0000d0    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             Delay1Second   0x0000da    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                DelayLoop   0x0000dd    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                 DELAY_1S   0x0000e2    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              DELAY_OUTER   0x0000e4    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             DELAY_MIDDLE   0x0000e6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              DELAY_INNER   0x0000e8    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_LED   0x0000ef    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB0   0x0000f4    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB1   0x0000f6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB2   0x0000f8    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             TURN_OFF_RB3   0x0000fa    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+         checkPlayerInput   0x0000fc    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              CompareLoop   0x000103    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+            InputMismatch   0x000115    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           DisplaySuccess   0x000117    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           DisplayFailure   0x00013d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+          DisplayGameOver   0x000153    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             BlinkMessage   0x00016b    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                BlinkLoop   0x00016d    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+          DisplayMessages   0x000174    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+             LevelMessage   0x0001a9    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+           ConvertToASCII   0x0001be    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                 ClearLCD   0x0001c0    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+              SendCommand   0x0001c3    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                 SendData   0x0001c6    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                    Delay   0x0001c9    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+               DelayLoop2   0x0001cb    program     static C:\Users\new laptop\Desktop\mplab\main.asm
+                    onems   0x0001ce    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                    loop1   0x0001d0    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                      xms   0x0001d4    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                    loopX   0x0001d5    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                   pulseE   0x0001d9    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                     send   0x0001e6    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+                     inid   0x0001f9    program     static C:\Users\new laptop\Desktop\mplab\LCDIS_PORTA.INC
+
+
